@@ -1,0 +1,458 @@
+---
+title: "PRA2 - Tipología y ciclo de vida de los datos "
+author: "PBE"
+date: "16/12/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Para la asignación de valores 
+##install.packages("VIM")
+##library (VIM)
+#Para el coeficiente de correlación 
+##library(corrplot)
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r message=TRUE, warning=FALSE}
+#Carga del dataset
+energy_dataset <- read.csv("C:/Users/pborao/OneDrive/Máster/3S- Tipología y ciclo de vida de los datos/PRA2/energy_dataset.csv")
+#Hago una copia de los datos, en previsión de algún error.
+```
+
+```{r message=TRUE, warning=FALSE}
+energy_dataset_original<-energy_dataset
+#Vemos qué contiene el dataset y su estructura
+View (energy_dataset)
+#Hay 29 variables y 35.064 observaciones
+str (energy_dataset)
+#Vemos que hay varias columnas que parecen que tienen datos nulos. Contamos los nulos de todas las columnas
+print ("CANTIDAD DE NA's:")
+sapply(energy_dataset, function(x) sum(is.na(x)))
+```
+
+```{r message=TRUE, warning=FALSE}
+#Hay varios atributos: en los que todas las observaciones tienen NA's. Las elimina ya que no aportan nada
+energy_dataset$generation.hydro.pumped.storage.aggregated<-NULL
+energy_dataset$forecast.wind.offshore.eday.ahead<-NULL
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Casos en los que hay NA's y que no son todas las observaciones: 
+sapply(energy_dataset, function(x) sum(is.na(x)))
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#La mayoría de los NA's, salvo en el atributo "total load actual", son 18-19 las ocurrencias de nulos en los diferentes atributos. Para ver la posibilidad de que en todos los atributos sean las mismas observaciones las que tienen el valor NA, creo  un subconjunto de estos datos
+energy_dataset_NA<- energy_dataset[is.na(energy_dataset$generation.fossil.brown.coal.lignite),]
+#Y al visualizarlo, 
+View(energy_dataset_NA)
+#Los NA's se encuentran en las mismas observaciones y teniendo en cuenta que:
+# 1. se trata de un porcentaje muy pequeño del conjunto de datos
+# 2. todos son observaciones nulas
+# 3. estamos relacionando generación de energía / precio / predicción del tiempo
+#decido eliminar estas observaciones. 
+energy_dataset<-energy_dataset[!is.na(energy_dataset$generation.fossil.brown.coal.lignite),]
+str(energy_dataset)
+#Compruebo
+sapply(energy_dataset, function(x) sum(is.na(x)))
+```
+
+```{r message=TRUE, warning=FALSE}
+#NA's que hay ahora
+sapply(energy_dataset, function(x) sum(is.na(x)))
+```
+
+```{r message=TRUE, warning=FALSE}
+# Hay varios atributos con 1 único valor NA  y 23 NA's en total_load_actual. 
+# Primero trabajo con los atributos que tienen un solo NA:
+#Uno de estos atributos es generation_waste.Identificamos las observaciones en las que tenemos el valor nulo
+View(energy_dataset[is.na(energy_dataset$generation.waste),])
+#Y como el resto de los atributos de la observación tiene datos, calculo el valor para este NA. Dado que se trata de un único valor y los valores no están dispersos, vamos a asignarle el valor de la media del resto de las observaciones de ese atributo.
+summary (energy_dataset$generation.waste)
+energy_dataset$generation.waste[is.na(energy_dataset$generation.waste)]<- 269.5
+```
+
+```{r message=TRUE, warning=FALSE}
+#Repito este proceso para el resto de atributos (4) que tienen un único valor nulo: generation_biomass, generation_fossil_oil, generation_hydro_pumped_storage_consumption,  generation_hydro_run-of-river_and_poundage
+
+#1. Atributo generation_biomass
+View(energy_dataset[is.na(energy_dataset$generation.biomass),])
+summary (energy_dataset$`generation biomass`)
+energy_dataset$generation.biomass[is.na(energy_dataset$generation.biomass)]<- 383.5
+
+#2. Atributo generation_fossil_oil
+View(energy_dataset[is.na(energy_dataset$generation.fossil.oil),])
+summary (energy_dataset$generation.fossil.oil)
+energy_dataset$generation.fossil.oil[is.na(energy_dataset$generation.fossil.oil)]<- 298.3
+
+#3. Atributo generation_hydro_pumped_storage_consumption
+View(energy_dataset[is.na(energy_dataset$generation.hydro.pumped.storage.consumption),])
+summary (energy_dataset$generation.hydro.pumped.storage.consumption)
+#En este caso vamos a utilizar también la media porque estamos ante un dataset con más de 35.000 observaciones y este cambio,no afectará al resultado, pero como se puede, hay una gran diferencia entre los valores. 
+energy_dataset$generation.hydro.pumped.storage.consumption[is.na(energy_dataset$generation.hydro.pumped.storage.consumption)]<-475.6
+
+#4. Atributo generation_hydro_run-of-river_and_poundage
+View(energy_dataset[is.na(energy_dataset$generation.hydro.run.of.river.and.poundage),])
+summary (energy_dataset$generation.hydro.run.of.river.and.poundage)
+#Igual que en el caso anterior, utilizamos la media por el número elevado de observaciones de las que disponemos.
+energy_dataset$generation.hydro.run.of.river.and.poundage[is.na(energy_dataset$generation.hydro.run.of.river.and.poundage)]<-972.1
+```
+
+```{r message=TRUE, warning=FALSE}
+sapply(energy_dataset, function(x) sum(is.na(x)))
+```
+
+```{r message=TRUE, warning=FALSE}
+# Voy a trabajar ahora los valores 0 
+sapply(energy_dataset, function(x) sum((x==0)))
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Eliminamos aquellos atributos en los cuales el valor para todas las observaciones es 0
+energy_dataset$generation.fossil.coal.derived.gas<- NULL
+energy_dataset$generation.fossil.oil.shale<-NULL
+energy_dataset$generation.fossil.peat<-NULL
+energy_dataset$generation.geothermal<-NULL
+energy_dataset$generation.marine<-NULL
+energy_dataset$generation.wind.offshore<-NULL
+```
+
+```{r message=TRUE, warning=FALSE}
+#COmprobando ahora los datos
+sapply(energy_dataset, function(x) sum((x==0)))
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Existen varios atributos (15) que tienen valores 0. 
+#Para profundizar en su análisis vamos a diferenciar los atributos que hacen referencia a generación de energía (14) de los atributos relativos al tiempo (1, forecast_solar_day_ahead)
+summary (energy_dataset)
+# Veamos cuántos valores 0 hay para los atributo relacionados con la generación de energía:
+V0.biomass<-length(energy_dataset$generation.biomass[energy_dataset$generation.biomass== 0])
+v0.lignite<-length(energy_dataset$generation.fossil.brown.coal.lignite[energy_dataset$generation.fossil.brown.coal.lignite==0])
+v0.gas<- length(energy_dataset$generation.fossil.gas[energy_dataset$generation.fossil.gas==0])
+v0.coal<- length(energy_dataset$generation.fossil.hard.coal[energy_dataset$generation.fossil.hard.coal== 0])
+v0.oil<- length(energy_dataset$generation.fossil.oil[energy_dataset$generation.fossil.oil==0])
+v0.pumped<- length(energy_dataset$generation.hydro.pumped.storage.consumption[energy_dataset$generation.hydro.pumped.storage.consumption== 0])
+v0.river<- length(energy_dataset$generation.hydro.run.of.river.and.poundage[energy_dataset$generation.hydro.run.of.river.and.poundage==0])
+v0.reservoir<- length(energy_dataset$generation.hydro.water.reservoir[energy_dataset$generation.hydro.water.reservoir==0])
+v0.nuclear <- length(energy_dataset$generation.nuclear[energy_dataset$generation.nuclear==0])
+v0.other<- length(energy_dataset$generation.other[energy_dataset$generation.other== 0])
+v0.renewable<- length(energy_dataset$generation.other.renewable[energy_dataset$generation.other.renewable==0])
+v0.solar <- length(energy_dataset$generation.solar[energy_dataset$generation.solar==0])
+v0.waste<- length (energy_dataset$generation.waste[energy_dataset$generation.waste== 0])
+v0.wind<-length((energy_dataset$generation.wind.onshore[energy_dataset$generation.wind.onshore==0]))
+```
+
+```{r message=TRUE, warning=FALSE}
+#De los resultados obtenidos vemos dos casos extremos: aquellos en los que valores 0 son sólamente 3 ó 4 y aquellos en los que son más del 31% de los casos. En el primer caso son demasiadas pocas ocurrencias como para que puedan afectar y en el segundo son demasiados casos como para que hayan sido mediciones erróneas. Por lo tanto, hemos decidido tanto en uno como en otro caso dejar los valores 0 tal y como están y considerarlos como datos válidos y no como datos erróneos. 
+
+#Y ahora analizamos los valores 0 relacionados con la predicción del tiempo del atributo solar_day_ahead
+v0.forecast<- length(energy_dataset$forecast.solar.day.ahead[energy_dataset$forecast.solar.day.ahead==0])
+v0.forecast
+#Hay 539 ocurrencias con valor 0
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Aplico Knn del paquete VIM para imputar valores.
+#energy_dataset$forecast.solar.day.ahead<- kNN(energy_dataset$forecast.solar.day.ahead)
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#3.2 Identificación y tratamiento de OUTLIERS
+#Voy a identificar si existen o no outliers; para ello analizo en primer lugar los atributos en que la media esté muy distante de la mediana, casi el doble.
+summary (energy_dataset)
+#Encontramos los atributos generation_hydro_pumped_storage_consumption, generation_solar. forecast_solar_day ahead como atributos con posibles outliers. 
+```
+```{r message=TRUE, warning=FALSE}
+#Detectamos si realmente hay o no outliers con un boxplot sobre las tres columnas que podrían tener valores outliers:
+par(mfrow=c(2,2))
+boxplot(energy_dataset$generation.solar, main = "Generation_solar")
+boxplot.stats(energy_dataset$generation.solar)$out
+boxplot (energy_dataset$generation.hydro.pumped.storage.consumption, main="Hydro_pumped")
+boxplot.stats(energy_dataset$generation.hydro.pumped.storage.consumption)$out
+boxplot (energy_dataset$forecast.solar.day.ahead, main="Forecast_solar")
+boxplot.stats(energy_dataset$forecast.solar.day.ahead)$out
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Los atributos generation_solar y forecast_solar_day_ahead no tiene valores outliers.
+#El atributo generation_hydro_pumped_storage_consumption tiene un porcentaje muy elevado de "posibles" outliers, tan elevado que lo voy a considerar como que no son outliers.
+#Si ordenamos los valores, lo que comprobamos es que realmente los valores están muy segmentados
+ outliers_ordenados <- sort (boxplot.stats(energy_dataset$generation.hydro.pumped.storage.consumption)$out, decreasing=FALSE, na.last = TRUE)
+str(outliers_ordenados)
+```
+
+```{r message=TRUE, warning=FALSE}
+boxplot (energy_dataset$generation.solar ~ energy_dataset$generation.hydro.pumped.storage.consumption)
+```
+
+```{r message=TRUE, warning=FALSE}
+#4. ANALISIS DE LOS DATOS
+#Etiquetamos las columnas para su más fácil identificación
+names (energy_dataset)= c ("Time", "Bioenergia","Carbon","Gas","Carbon_duro","Aceite","Bombeo_hidraulico","Caudal_rio", "Deposito_agua","Nuclear","Otras","Renovables","Solar","Residuos","Eolica","Prevision_solar","Prevision_Viento","Carga_prevision","Carga_real","Precio_prevision","Precio_real" )
+```
+
+```{r message=TRUE, warning=FALSE}
+#Seleccionamos el conjunto de datos con el que vamos a trabajar, primero reduciendo la dimensionalidad
+datos <- energy_dataset
+datos$Bioenergia<- NULL
+datos$Carbon<- NULL
+datos$Gas<- NULL
+datos$Carbon_duro<- NULL
+datos$Aceite<-NULL
+datos$Bombeo_hidraulico<-NULL
+datos$Caudal_rio<-NULL
+datos$Deposito_agua<-NULL
+datos$Nuclear<-NULL
+datos$Otras<-NULL
+datos$Renovables<-NULL
+datos$Residuos<-NULL
+
+str(datos)
+#Hemos reducido el conjunto de datos a 9 atributos.
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Seleccionamos el subconjunto de datos con los que voy a realizar el análisis de los datos, es decir, creo el conjunto de datos de enero:
+library(stringr)
+datos$anyo<- str_sub (datos$Time, 1, 4)
+datos$fecha<- str_sub (datos$Time, 1, 10)
+datos$mes<-str_sub(datos$fecha,6,7)
+#datos$hora<-str_sub(datos$Time,-8,-1)
+
+#Creo un subconjunto de datos para el mes de enero
+#datos2018<- datos[datos$anyo=="2018",]
+datosenero<-datos[datos$mes=="01",]
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Elimino columnas que he creado para la selección de los datos
+datosenero$anyo<- NULL
+datosenero$Time<- NULL
+datosenero$fecha<- NULL
+datosenero$mes<- NULL
+str(datosenero)
+```
+
+```{r message=TRUE, warning=FALSE}
+#Análisis estadístico descriptivo
+str (datosenero)
+#El dataset tienes 9 atributos y 2965 observaciones. Todos son valores numéricos, salvo el atributo Time
+```
+
+```{r message=TRUE, warning=FALSE}
+#Análisis estadístico inferencial para los datos del mes de enero
+#Comprobación de la normalidad gráficamente mediante histogramas y con el test de Kolmogorov-Smirnov. En este caso también realizamos test de Shpario-Wikl puesto que las observaciones son inferiores a 3000
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Solar, main="ENERO - Energía solar", ylab= "Frecuencia", xlab="Energía solar", breaks = "Sturges")
+ks.test(datosenero$Solar, pnorm, mean (datosenero$Solar, sd (datosenero$Solar)))
+shapiro.test(datosenero$Solar)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Eolica, main="ENERO - Energía eólica", ylab= "Frecuencia", xlab="Energía eólica", breaks = "Sturges")
+ks.test(datosenero$Eolica, pnorm, mean (datosenero$Eolica, sd (datosenero$Eolica)))
+shapiro.test(datosenero$Eolica)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Prevision_solar, main="ENERO - Previsión solar", ylab= "Frecuencia", xlab="Previsión Solar", breaks = "Sturges")
+ks.test(datosenero$Prevision_solar, pnorm, mean (datosenero$Prevision_solar, sd (datosenero$Prevision_solar)))
+shapiro.test(datosenero$Prevision_solar)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Prevision_Viento, main="ENERO - Previsión del viento", ylab= "Frecuencia", xlab="Previsión del viento", breaks = "Sturges")
+ks.test(datosenero$Prevision_Viento, pnorm, mean (datosenero$Prevision_Viento, sd (datosenero$Prevision_Viento)))
+shapiro.test(datosenero$Prevision_Viento)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Carga_prevision, main="ENERO - Previsión de carga", ylab= "Frecuencia", xlab="Previsión de carga", breaks = "Sturges")
+ks.test(datosenero$Carga_prevision, pnorm, mean (datosenero$Carga_prevision, sd (datosenero$Carga_prevision)))
+shapiro.test(datosenero$Carga_prevision)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Carga_real, main="ENERO - Carga real", ylab= "Frecuencia", xlab="Carga real", breaks = "Sturges")
+ks.test(datosenero$Carga_real, pnorm, mean (datosenero$Carga_real, sd(datosenero$Carga_real)))
+shapiro.test(datosenero$Carga_real)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Precio_prevision, main="ENERO - Previsión del precio", ylab= "Frecuencia", xlab="Previsión del precio", breaks = "Sturges")
+ks.test(datosenero$Precio_prevision, pnorm, mean (datosenero$Precio_prevision, sd (datosenero$Precio_prevision)))
+shapiro.test(datosenero$Precio_prevision)
+```
+
+```{r message=TRUE, warning=FALSE}
+hist (datosenero$Precio_real, main="ENERO - Precio real", ylab= "Frecuencia", xlab="Precio real", breaks = "Sturges")
+ks.test(datosenero$Precio_real, pnorm, mean (datosenero$Precio_real, sd (datosenero$Precio_real)))
+shapiro.test(datosenero$Precio_real)
+```
+
+```{r message=TRUE, warning=FALSE}
+#Es decir, ninguno de los atributos sigue una distribución normal. 
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#4.3 Comprobación de la igualdad de varianzas mediante el test de Fligner-Killeen.
+ftest_solar_eolica <- fligner.test(datos$Solar ~ datos$Eolica)
+str_c ("Generación solar / Generación eólica:" ,ftest_solar_eolica[["p.value"]])
+
+ftest_solar_previsionsolar <- fligner.test(datos$Solar ~ datos$Prevision_solar)
+str_c ("Generación solar / Previsión solar:" ,ftest_solar_previsionsolar[["p.value"]])
+
+ftest_solar_cargareal <- fligner.test(datos$Solar ~ datos$Carga_real)
+str_c ("Generación solar / Carga real:" ,ftest_solar_cargareal[["p.value"]])
+
+ftest_eolica_previsioneolica<- fligner.test (datos$Eolica ~ datos$Prevision_Viento)
+
+
+```
+
+
+```{r message=TRUE, warning=FALSE}
+#Correlación entre las variables
+#cor (datosenero)
+
+#Calculamos la correlación entre pares de variables con el test de Spearman
+solar_eolica<- cor.test(datosenero$Solar, datosenero$Eolica, method= "spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la Energía eólica: " ,solar_eolica[["estimate"]][["rho"]])
+
+solar_previsionsolar<-cor.test (datosenero$Solar, datosenero$Prevision_solar, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la Previsión solar: " ,solar_previsionsolar[["estimate"]][["rho"]])
+
+solar_previsionviento<-cor.test (datosenero$Solar, datosenero$Prevision_Viento, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la Previsión del viento: " ,solar_previsionviento[["estimate"]][["rho"]])
+
+solar_cargaprevision<-cor.test (datosenero$Solar, datosenero$Carga_prevision, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la Previsión de carga: " ,solar_cargaprevision[["estimate"]][["rho"]])
+
+solar_cargareal<-cor.test (datosenero$Solar, datosenero$Carga_real, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la carga real: " ,solar_cargareal[["estimate"]][["rho"]])
+
+solar_previsionprecio<-cor.test (datosenero$Solar, datosenero$Precio_prevision, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y la Previsión del precio: " ,solar_previsionprecio[["estimate"]][["rho"]])
+
+solar_precioreal<-cor.test (datosenero$Solar, datosenero$Precio_real, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia solar y el precio real: " ,solar_precioreal[["estimate"]][["rho"]])
+
+eolica_previsionviento<-cor.test (datosenero$Eolica, datosenero$Prevision_Viento, method="spearman", exact=FALSE)
+str_c ("Correlación entre la Energia eólica y la Previsión del viento: " ,eolica_previsionviento[["estimate"]][["rho"]])
+```
+
+
+```{r message=TRUE, warning=FALSE}
+precioprevision_real <-cor.test (datosenero$Precio_prevision, datosenero$Precio_real, method= "spearman", exact= FALSE)
+str_c("Correlacion entre la Previsión del precio y el precio real: " ,precioprevision_real[["estimate"]][["rho"]])
+```
+
+
+```{r message=TRUE, warning=FALSE}
+cargaprevision_cargareal<- cor.test(datosenero$Carga_prevision, datosenero$Carga_real, method="spearman", exact=FALSE)
+str_c ("Correlacion entre la previsión de carga y la carga real: ", cargaprevision_cargareal[["estimate"]][["rho"]])
+```
+
+```{r message=TRUE, warning=FALSE}
+precioprevision_precioreal<-cor.test(datosenero$Precio_prevision, datosenero$Precio_real, method="spearman", exact = FALSE)
+str_c ("Correlación entre la previsión del precio y el precio real: ", precioprevision_precioreal[["estimate"]][["rho"]])
+```
+
+
+
+
+
+```{r}
+##5. REPRESENTACIÓN GRÁFICA 
+par (mfrow = c(3,3))
+qqnorm (datosenero$Solar, main= "Energía Solar")
+qqline (datosenero$Solar, col =7)
+qqnorm (datosenero$Prevision_solar, main="Previsión Solar")
+qqline (datosenero$Prevision_solar, col =7)
+qqnorm (datosenero$Eolica, main ="Energía Eólica")
+qqline (datosenero$Eolica, col =7)
+qqnorm(datosenero$Prevision_Viento, main= "Previsión Viento")
+qqline (datosenero$Prevision_Viento, col =7)
+qqnorm (datosenero$Carga_prevision, main= "Previsión de carga")
+qqline (datosenero$Carga_prevision, col =7)
+qqnorm (datosenero$Carga_real, main ="Carga real")
+qqline (datosenero$Carga_real, col =7)
+qqnorm(datosenero$Precio_prevision, main ="Previsión de precio")
+qqline (datosenero$Precio_prevision, col =7)
+qqnorm(datosenero$Precio_real, main="Precio real")
+qqline (datosenero$Precio_real, col =7)
+```
+
+```{r}
+#CORRELACIONES ENTRE LAS VARIABLES
+library(corrplot)
+corr.res<- cor(datosenero)
+corrplot.mixed(corr.res, upper="square", number.cex = .8,tl.cex = .5)
+corrplot (corr.res, method="circle")
+```
+
+```{r message=TRUE, warning=FALSE}
+#Otra forma de ver las relaciones entre variables es utilizar pairs para obtener una matriz de dispersión
+pairs(datosenero[,1:4],main= "Matriz de dispersión", cex=0.6, col='dodgerblue2')
+```
+
+
+```{r message=TRUE, warning=FALSE}
+regresion <- lm (Solar ~ Prevision_solar, datosenero)
+summary (regresion)
+
+```
+
+
+```{r message=TRUE, warning=FALSE}
+regresion <- lm (Solar ~ Eolica, datosenero)
+summary (regresion)
+```
+
+
+```{r message=TRUE, warning=FALSE}
+regresion <- lm (Carga_prevision ~ Carga_real, datosenero)
+summary (regresion)
+```
+
+
+```{r message=TRUE, warning=FALSE}
+regresion <- lm (Precio_prevision ~ Precio_real, datosenero)
+summary (regresion)
+```
+
+
+```{r message=TRUE, warning=FALSE}
+##Extracción de datos limpios
+write.csv(datosenero,"dataset_limpio.csv")
+```
+
+
+
+
+
+
+
